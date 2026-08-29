@@ -62,4 +62,4 @@ Xcodeのプロジェクト名・Scheme名・ターゲット名はSproutsです�
 
 ## サポート
 
-使い方、仕様、トラブルシューティングは[Sproutsサポート](docs/index.md)を参照してください。問題の報告は[GitHub Issues](https://github.com/wentzinc-dev/Sprouts/issues)で受け付けます。
+使い方、仕様、トラブルシューティングは[Sproutsサポート](docs/index.md)を参照してください。不具合、ご質問、機能のご要望は、[WENTZ Apps共通のお問い合わせフォーム](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)からお送りください。パスワードや機密情報などは送信しないでください。

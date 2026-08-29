@@ -9,7 +9,7 @@ title: Sprouts Support
 
 Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリです。入力ファイルを外部サーバーへ送信しません。
 
-[English](#english) | [プライバシーポリシー](privacy/) | [不具合を報告する](https://github.com/wentzinc-dev/Sprouts/issues/new)
+[English](#english) | [プライバシーポリシー](privacy/) | [お問い合わせ](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)
 
 ## 基本的な使い方
 
@@ -70,7 +70,9 @@ Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリで�
 
 ## お問い合わせ
 
-SproutsはWENTZ, K.K.が提供しています。不具合、一般的なお問い合わせ、機能のご要望は[GitHub Issues](https://github.com/wentzinc-dev/Sprouts/issues/new)へ投稿してください。再現手順、macOSのバージョン、入力形式、選択した設定、表示されたログを添えると調査しやすくなります。機密ファイルは添付しないでください。
+SproutsはWENTZ, K.K.が提供しています。不具合、ご質問、機能のご要望は、WENTZ Apps共通のお問い合わせフォームからお送りください。不具合の場合は、再現手順、macOSのバージョン、入力形式、選択した設定などをご記入いただけると調査しやすくなります。パスワードや機密情報などは送信しないでください。
+
+[お問い合わせフォームを開く](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)
 
 ---
 
@@ -106,4 +108,8 @@ Upscaling cannot recreate missing detail and may magnify softness or compression
 
 ## Troubleshooting and contact
 
-If Sprouts cannot save, explicitly choose a writable destination folder and approve macOS folder access when requested. Sprouts is provided by WENTZ, K.K. For bugs, general support, and feature requests, open a [GitHub Issue](https://github.com/wentzinc-dev/Sprouts/issues/new) with reproduction steps, macOS version, input format, settings, and the displayed log. Do not attach confidential source files.
+If Sprouts cannot save, explicitly choose a writable destination folder and approve macOS folder access when requested.
+
+Sprouts is provided by WENTZ, K.K. For bug reports, questions, and feature requests, please use the WENTZ Apps support form. For bug reports, including reproduction steps, macOS version, input format, and relevant settings will help with investigation. Do not submit passwords, confidential information, or other sensitive data.
+
+[Open Support Form](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)
