@@ -54,6 +54,7 @@ Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリで�
 ## カラーと形式
 
 - JPGは透過を保持できません。
+- JPEGは通常のベースライン形式で書き出します。Photoshopの「ベースライン（標準）」に近い設定ですが、JPEGエンコーダーが異なるため、圧縮結果は完全には一致しません。
 - PNG圧縮率は画質を変えず、処理時間とファイル容量に影響します。
 - WebP品質は非可逆圧縮の品質です。
 - ICCプロファイルを埋め込まない場合、ほかのアプリで色の見え方が変わる可能性があります。
@@ -107,6 +108,7 @@ Upscaling cannot recreate missing detail and may magnify softness or compression
 - TIFF layers are not preserved. Multi-image TIFF files produce one output per image.
 - Animated GIF uses the first frame only.
 - JPEG cannot preserve transparency.
+- JPEG files are written in the standard baseline format. This is similar to Photoshop's Baseline (Standard) setting, but the compression result will not be identical because Sprouts uses a different JPEG encoder.
 
 > **Important: PSD color**  Sprouts currently converts PSDs using the saved composite image made available by macOS. As a result, output colors can differ from Photoshop or the original file when a PSD has an embedded ICC profile. The difference can be more noticeable with wide-gamut profiles such as ProPhoto RGB, Adobe RGB (1998), and Display P3; it does not affect every PSD. If color accuracy is essential, for now convert the PSD to sRGB in Photoshop using **Convert to Profile** (not Assign Profile) before exporting it with Sprouts.
 
