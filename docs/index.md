@@ -46,10 +46,10 @@ Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリで�
 
 - PDF：指定PPIでページごとに画像化した後、保存サイズを適用します。文字やベクターもピクセル画像へ統合されます。
 - PSD：Photoshop保存時の統合画像を使用します。レイヤー、マスク、スマートオブジェクトなどは保持しません。統合画像のないPSDは開けない場合があります。
-
-> **重要：PSDのカラーについて**  現在のSproutsは、macOSで取得できるPSDの保存済み統合画像を使用して変換します。このため、埋め込みICCプロファイルを持つPSDでは、Photoshopまたは元ファイルと比べて出力画像の色味が変わる場合があります。特にProPhoto RGB、Adobe RGB (1998)、Display P3などの広色域プロファイルでは差が目立つことがあります。すべてのPSDで発生するものではありません。正確な色が必要な場合は、現時点ではPhotoshopで**プロファイル変換**（単なるプロファイルの割り当てではありません）によりsRGBへ変換してから、Sproutsで書き出してください。
 - TIFF：レイヤーを保持しません。複数画像を格納したTIFFは各画像を書き出します。
 - GIF：アニメーションは保持せず、先頭フレームを使用します。
+
+> **重要：PSDのカラーについて**  現在のSproutsは、macOSで取得できるPSDの保存済み統合画像を使用して変換します。このため、埋め込みICCプロファイルを持つPSDでは、Photoshopまたは元ファイルと比べて出力画像の色味が変わる場合があります。特にProPhoto RGB、Adobe RGB (1998)、Display P3などの広色域プロファイルでは差が目立つことがあります。すべてのPSDで発生するものではありません。正確な色が必要な場合は、現時点ではPhotoshopで**プロファイル変換**（単なるプロファイルの割り当てではありません）によりsRGBへ変換してから、Sproutsで書き出してください。
 
 ## カラーと形式
 
@@ -104,11 +104,11 @@ Upscaling cannot recreate missing detail and may magnify softness or compression
 
 - PDF pages are rasterized at the selected PPI and then resized.
 - PSD uses the saved composite image; layers and editable structures are not preserved.
-
-> **Important: PSD color**  Sprouts currently converts PSDs using the saved composite image made available by macOS. As a result, output colors can differ from Photoshop or the original file when a PSD has an embedded ICC profile. The difference can be more noticeable with wide-gamut profiles such as ProPhoto RGB, Adobe RGB (1998), and Display P3; it does not affect every PSD. If color accuracy is essential, for now convert the PSD to sRGB in Photoshop using **Convert to Profile** (not Assign Profile) before exporting it with Sprouts.
 - TIFF layers are not preserved. Multi-image TIFF files produce one output per image.
 - Animated GIF uses the first frame only.
 - JPEG cannot preserve transparency.
+
+> **Important: PSD color**  Sprouts currently converts PSDs using the saved composite image made available by macOS. As a result, output colors can differ from Photoshop or the original file when a PSD has an embedded ICC profile. The difference can be more noticeable with wide-gamut profiles such as ProPhoto RGB, Adobe RGB (1998), and Display P3; it does not affect every PSD. If color accuracy is essential, for now convert the PSD to sRGB in Photoshop using **Convert to Profile** (not Assign Profile) before exporting it with Sprouts.
 
 ## Troubleshooting and contact
 
