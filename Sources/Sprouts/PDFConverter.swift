@@ -108,23 +108,26 @@ enum InputInspector {
 
             if ext == "psd" { result.psdCount += 1 }
             if ext == "gif" { result.gifCount += 1 }
-            if let source = CGImageSourceCreateWithURL(url as CFURL, nil) {
+            // Inspection runs whenever the selected files or settings change. Do
+            // not decode full frames here: the converter will decode them once
+            // when it actually renders the selected output format.
+            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            if let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) {
                 let count = ext == "gif" ? 1 : max(1, CGImageSourceGetCount(source))
                 result.outputImageCount += count
                 for index in 0..<count {
-                    guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
                     let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
                     let dpi = (properties?[kCGImagePropertyDPIWidth] as? NSNumber)?.intValue ?? 72
-                    if options.scaleFactor(width: image.width, height: image.height, sourceDPI: dpi) > 1.0001 {
+                    let width = (properties?[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+                    let height = (properties?[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
+                    if options.scaleFactor(width: width, height: height, sourceDPI: dpi) > 1.0001 {
                         result.upscaleImageCount += 1
                     }
                 }
             } else {
+                // Do not use NSImage as a fallback during inspection. It fully
+                // decodes files (notably PSD composites) only to show a warning.
                 result.outputImageCount += 1
-                if let image = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil),
-                   options.scaleFactor(width: image.width, height: image.height) > 1.0001 {
-                    result.upscaleImageCount += 1
-                }
             }
         }
         return result
@@ -144,6 +147,7 @@ struct FileConverter {
         isJapanese: Bool,
         progress: @escaping @MainActor (Int, Int) -> Void
     ) async throws -> [URL] {
+        try Task.checkCancellation()
         if let message = options.validationMessage(isJapanese: isJapanese) {
             throw ConversionError.incompatibleOptions(message)
         }
@@ -180,6 +184,7 @@ struct FileConverter {
         guard let document = PDFDocument(url: url) else {
             throw ConversionError.cannotOpenFile(url.lastPathComponent, isJapanese)
         }
+        try Task.checkCancellation()
 
         let dpi = options.effectivePDFDPI
         let colorSpace = resolvePDFColorSpace(for: options.colorProfile, pdfURL: url)
@@ -188,6 +193,7 @@ struct FileConverter {
 
         var outputURLs: [URL] = []
         for index in 0..<document.pageCount {
+            try Task.checkCancellation()
             guard let page = document.page(at: index) else {
                 throw ConversionError.cannotRenderItem(index + 1, isJapanese)
             }
@@ -198,6 +204,7 @@ struct FileConverter {
                 itemNumber: index + 1,
                 isJapanese: isJapanese
             )
+            try Task.checkCancellation()
             let rendered = try resizeImage(
                 rasterized.image,
                 colorSpace: colorSpace,
@@ -206,6 +213,7 @@ struct FileConverter {
                 itemNumber: index + 1,
                 isJapanese: isJapanese
             )
+            try Task.checkCancellation()
             let outputURL = uniqueOutputURL(
                 in: outputFolder,
                 filename: OutputFilenameBuilder.filename(
@@ -225,6 +233,7 @@ struct FileConverter {
                 options: options,
                 sourceProperties: nil
             )
+            try Task.checkCancellation()
             preserveFileDatesIfNeeded(from: url, to: outputURL, options: options)
             outputURLs.append(outputURL)
             await progress(index + 1, document.pageCount)
@@ -240,6 +249,7 @@ struct FileConverter {
         isJapanese: Bool,
         progress: @escaping @MainActor (Int, Int) -> Void
     ) async throws -> [URL] {
+        try Task.checkCancellation()
         let fallbackDPI = 72
         let outputFolder = try makeOutputFolder(for: url, in: destinationURL, isJapanese: isJapanese)
 
@@ -248,6 +258,7 @@ struct FileConverter {
             let count = url.pathExtension.lowercased() == "gif" ? 1 : sourceCount
             var outputURLs: [URL] = []
             for index in 0..<count {
+                try Task.checkCancellation()
                 guard let sourceImage = CGImageSourceCreateImageAtIndex(source, index, nil) else {
                     throw ConversionError.cannotRenderItem(index + 1, isJapanese)
                 }
@@ -262,6 +273,7 @@ struct FileConverter {
                     itemNumber: index + 1,
                     isJapanese: isJapanese
                 )
+                try Task.checkCancellation()
                 let sourceDPI = options.saveSizeMode == .resolution
                     ? options.saveDPI
                     : inputDPI
@@ -279,6 +291,7 @@ struct FileConverter {
                     options: options,
                     sourceProperties: sourceProperties
                 )
+                try Task.checkCancellation()
                 preserveFileDatesIfNeeded(from: url, to: outputURL, options: options)
                 outputURLs.append(outputURL)
                 await progress(index + 1, count)
@@ -292,6 +305,7 @@ struct FileConverter {
               let sourceImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw ConversionError.cannotOpenFile(url.lastPathComponent, isJapanese)
         }
+        try Task.checkCancellation()
         let colorSpace = resolveImageColorSpace(for: options.colorProfile, sourceImage: sourceImage)
         try validate(colorSpace: colorSpace, options: options, isJapanese: isJapanese)
         let rendered = try resizeImage(
@@ -302,6 +316,7 @@ struct FileConverter {
             itemNumber: 1,
             isJapanese: isJapanese
         )
+        try Task.checkCancellation()
         let outputURL = uniqueOutputURL(
             in: outputFolder,
             filename: OutputFilenameBuilder.filename(for: url, sequence: sequence.next(), format: options.format, options: options)
@@ -315,6 +330,7 @@ struct FileConverter {
             options: options,
             sourceProperties: nil
         )
+        try Task.checkCancellation()
         preserveFileDatesIfNeeded(from: url, to: outputURL, options: options)
         await progress(1, 1)
         return [outputURL]
@@ -349,6 +365,7 @@ struct FileConverter {
         itemNumber: Int,
         isJapanese: Bool
     ) throws -> RenderedPage {
+        try Task.checkCancellation()
         let bounds = page.bounds(for: .mediaBox)
         let scale = CGFloat(dpi) / 72
         let width = max(1, Int((bounds.width * scale).rounded(.up)))
@@ -395,6 +412,7 @@ struct FileConverter {
             context.interpolationQuality = interpolationQuality(for: options.resizeMethod, scale: scale)
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
+        try Task.checkCancellation()
         guard abs(scale - 1) > 0.0001,
               let processed = postProcessedImage(rendered.image, method: options.resizeMethod, scale: scale) else {
             return rendered
@@ -423,6 +441,7 @@ struct FileConverter {
         isJapanese: Bool,
         drawing: (CGContext) -> Void
     ) throws -> RenderedPage {
+        try Task.checkCancellation()
         let isCMYK = colorSpace.model == .cmyk
         let bytesPerPixel = bitsPerComponent == 16 ? 8 : 4
         let bytesPerRow = width * bytesPerPixel
@@ -444,6 +463,7 @@ struct FileConverter {
         }
         context.interpolationQuality = .high
         drawing(context)
+        try Task.checkCancellation()
         guard let image = context.makeImage(), let data = context.data else {
             throw ConversionError.cannotRenderItem(itemNumber, isJapanese)
         }
@@ -466,6 +486,7 @@ struct FileConverter {
     }
 
     private func postProcessedImage(_ image: CGImage, method: ResizeMethod, scale: CGFloat) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
         let resolvedMethod: ResizeMethod = method == .automatic
             ? (scale < 1 ? .bicubicSharper : .bicubicSmoother)
             : method
@@ -496,6 +517,7 @@ struct FileConverter {
         options: ExportOptions,
         sourceProperties: [CFString: Any]?
     ) throws {
+        try Task.checkCancellation()
         let format = options.format
         if format == .webp {
             let image = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
@@ -506,6 +528,7 @@ struct FileConverter {
             ) else {
                 throw ConversionError.cannotEncodeItem(itemNumber, format, isJapanese)
             }
+            try Task.checkCancellation()
             do {
                 try data.write(to: url, options: .atomic)
             } catch {
@@ -552,6 +575,7 @@ struct FileConverter {
             ]
         }
         CGImageDestinationAddImage(destination, outputImage, properties as CFDictionary)
+        try Task.checkCancellation()
         guard CGImageDestinationFinalize(destination) else {
             throw ConversionError.cannotEncodeItem(itemNumber, format, isJapanese)
         }

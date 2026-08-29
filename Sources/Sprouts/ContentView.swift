@@ -2,6 +2,35 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// UI-facing lifecycle for one export run.
+///
+/// Native image encoders are synchronous, so a cancellation request can take
+/// effect only after the encoder returns. Keeping that request separate from
+/// the run itself prevents the UI from treating "stopping" as a terminal state.
+struct ConversionRunState {
+    private(set) var isConverting = false
+    private(set) var isStopping = false
+
+    mutating func begin() {
+        isConverting = true
+        isStopping = false
+    }
+
+    /// Returns `true` only for the first stop request in a run.
+    mutating func requestStop() -> Bool {
+        guard isConverting, !isStopping else { return false }
+        isStopping = true
+        return true
+    }
+
+    /// Always call this when the export task exits, including cancellation and
+    /// failures, so the primary action returns to its normal state.
+    mutating func finish() {
+        isConverting = false
+        isStopping = false
+    }
+}
+
 private enum DestinationBookmarkStore {
     private static let selectedDestinationKey = "selectedDestinationBookmark"
     private static let sourceFoldersKey = "sourceFolderBookmarks"
@@ -460,7 +489,8 @@ struct ContentView: View {
     @State private var includeSubfolders = false
     @State private var preservesFolderStructure = false
     @State private var isTargeted = false
-    @State private var isConverting = false
+    @State private var conversionRunState = ConversionRunState()
+    @State private var conversionTask: Task<Void, Never>?
     @State private var progressText = ""
     @State private var alertMessage: String?
     @State private var inspection = InputInspection()
@@ -582,6 +612,9 @@ struct ContentView: View {
         }
         .task(id: inspectionKey) {
             await refreshInspection()
+        }
+        .onDisappear {
+            conversionTask?.cancel()
         }
         .sheet(isPresented: Binding(
             get: { !hasCompletedFolderAccessOnboarding },
@@ -1241,7 +1274,10 @@ struct ContentView: View {
             ))
         }
         if inspection.psdCount > 0 {
-            lines.append(t("PSDは統合画像として処理します", "PSDs are processed as flattened composites"))
+            lines.append(t(
+                "PSDは統合画像として処理します。色再現は保証できないため重要な案件には推奨しません",
+                "PSDs are processed as flattened composites. Color reproduction is not guaranteed; not recommended for critical work"
+            ))
         }
         if inspection.hasMultiPagePDF {
             lines.append(t("複数ページPDFはページごとに書き出します", "Multi-page PDFs are exported page by page"))
@@ -1355,15 +1391,27 @@ struct ContentView: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             }
-            Button(isConverting ? t("変換中…", "Converting…") : t("画像を書き出す", "Export images"), action: export)
-                .buttonStyle(SproutsPrimaryButtonStyle())
-                .frame(minWidth: 156 * uiFontSize.scale, minHeight: 38 * uiFontSize.scale)
-                .disabled(
-                    droppedURLs.isEmpty
-                        || (destinationMode == .selectedFolder && destinationURL == nil)
-                        || isConverting
-                        || !selectedOptionsAreImplemented
+            if conversionRunState.isConverting {
+                Button(
+                    conversionRunState.isStopping
+                        ? t("中止しています…", "Stopping…")
+                        : t("処理を中止", "Stop"),
+                    action: cancelConversion
                 )
+                    .buttonStyle(SproutsPrimaryButtonStyle())
+                    .keyboardShortcut(".", modifiers: [.command])
+                    .frame(minWidth: 156 * uiFontSize.scale, minHeight: 38 * uiFontSize.scale)
+                    .disabled(conversionRunState.isStopping)
+            } else {
+                Button(t("画像を書き出す", "Export images"), action: export)
+                    .buttonStyle(SproutsPrimaryButtonStyle())
+                    .frame(minWidth: 156 * uiFontSize.scale, minHeight: 38 * uiFontSize.scale)
+                    .disabled(
+                        droppedURLs.isEmpty
+                            || (destinationMode == .selectedFolder && destinationURL == nil)
+                            || !selectedOptionsAreImplemented
+                    )
+            }
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -1481,20 +1529,28 @@ struct ContentView: View {
         let conversionLanguageIsJapanese = isJapanese
         let conversionOptions = options
         let selectedFormats = conversionOptions.selectedFormats
-        isConverting = true
+        conversionRunState.begin()
         conversionProgress = 0
         completedFileCount = 0
         totalFileCount = 0
         progressText = t("変換を開始しています…", "Starting conversion…")
         logText = t("書き出しを開始しました", "Export started")
 
-        Task {
+        let task = Task {
             let selectedDestination = destinationURL
             let securityScopedURLs = roots + sourceFolderAccessURLs + (selectedDestination.map { [$0] } ?? [])
             let accessedURLs = securityScopedURLs.filter { $0.startAccessingSecurityScopedResource() }
             defer { accessedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
+            defer {
+                // A native encoder may only observe cancellation after it
+                // returns.  This cleanup must therefore run for every exit
+                // path instead of depending on a particular catch branch.
+                conversionRunState.finish()
+                conversionTask = nil
+            }
 
             do {
+                try Task.checkCancellation()
                 let filesToConvert = try expandedInputs(from: roots)
                 guard !filesToConvert.isEmpty else {
                     throw ConversionError.incompatibleOptions(
@@ -1512,7 +1568,9 @@ struct ContentView: View {
                 let outputSequence = OutputSequence()
                 var exportedURLs: [URL] = []
                 for (fileIndex, input) in filesToConvert.enumerated() {
+                    try Task.checkCancellation()
                     for (formatIndex, format) in selectedFormats.enumerated() {
+                        try Task.checkCancellation()
                         let jobIndex = fileIndex * selectedFormats.count + formatIndex
                         let formatOptions = conversionOptions.options(for: format)
                         let outputBase = try outputBaseURL(
@@ -1521,21 +1579,31 @@ struct ContentView: View {
                             selectedDestination: selectedDestination,
                             exportOptions: conversionOptions
                         )
-                        let createdURLs = try await FileConverter().convert(
-                            inputURL: input.url,
-                            destinationURL: outputBase,
-                            options: formatOptions,
-                            sequence: outputSequence,
-                            isJapanese: conversionLanguageIsJapanese
-                        ) { completed, total in
-                            let itemProgress = total > 0 ? Double(completed) / Double(total) : 0
-                            conversionProgress = min(
-                                1,
-                                (Double(jobIndex) + itemProgress) / Double(totalJobs)
-                            )
-                            progressText = conversionLanguageIsJapanese
-                                ? "ファイル \(fileIndex + 1)/\(filesToConvert.count)・\(format.displayName)・\(completed)/\(total)"
-                                : "File \(fileIndex + 1)/\(filesToConvert.count) · \(format.displayName) · \(completed)/\(total)"
+                        // ImageIO/Core Graphics decoding and encoding are
+                        // synchronous. Run each job away from the main actor so
+                        // the Stop button remains responsive while they work.
+                        let conversionJob = Task.detached(priority: .userInitiated) {
+                            try await FileConverter().convert(
+                                inputURL: input.url,
+                                destinationURL: outputBase,
+                                options: formatOptions,
+                                sequence: outputSequence,
+                                isJapanese: conversionLanguageIsJapanese
+                            ) { completed, total in
+                                let itemProgress = total > 0 ? Double(completed) / Double(total) : 0
+                                conversionProgress = min(
+                                    1,
+                                    (Double(jobIndex) + itemProgress) / Double(totalJobs)
+                                )
+                                progressText = conversionLanguageIsJapanese
+                                    ? "ファイル \(fileIndex + 1)/\(filesToConvert.count)・\(format.displayName)・\(completed)/\(total)"
+                                    : "File \(fileIndex + 1)/\(filesToConvert.count) · \(format.displayName) · \(completed)/\(total)"
+                            }
+                        }
+                        let createdURLs = try await withTaskCancellationHandler {
+                            try await conversionJob.value
+                        } onCancel: {
+                            conversionJob.cancel()
                         }
                         exportedURLs.append(contentsOf: createdURLs)
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
@@ -1544,7 +1612,6 @@ struct ContentView: View {
                     }
                     logText += "\n[\(fileIndex + 1)/\(filesToConvert.count)] \(input.url.lastPathComponent)"
                 }
-                isConverting = false
                 conversionProgress = 1
                 alertMessage = conversionLanguageIsJapanese
                     ? "\(filesToConvert.count)個のファイルを\(selectedFormats.count)形式へ変換しました。"
@@ -1553,12 +1620,27 @@ struct ContentView: View {
                 if conversionOptions.shouldOpenDestinationWhenComplete {
                     NSWorkspace.shared.activateFileViewerSelecting(exportedURLs)
                 }
+            } catch is CancellationError {
+                progressText = conversionLanguageIsJapanese ? "処理を中止しました" : "Conversion stopped"
+                logText += conversionLanguageIsJapanese
+                    ? "\n中止：完了済みの書き出しは保持されます"
+                    : "\nStopped: files already written are kept"
+                alertMessage = conversionLanguageIsJapanese
+                    ? "処理を中止しました。完了済みの書き出しは保存先に残っています。"
+                    : "Conversion stopped. Files already written remain in the destination."
             } catch {
-                isConverting = false
                 logText += "\nERROR: \(error.localizedDescription)"
                 alertMessage = error.localizedDescription
             }
         }
+        conversionTask = task
+    }
+
+    private func cancelConversion() {
+        guard conversionRunState.requestStop() else { return }
+        conversionTask?.cancel()
+        progressText = t("中止しています…", "Stopping…")
+        logText += t("\n中止を要求しました", "\nStop requested")
     }
 
     private func requestSourceFolderWriteAccessIfNeeded(for roots: [URL]) -> [URL]? {
@@ -1920,8 +2002,8 @@ struct HelpView: View {
                     ? "PDFは指定した読込解像度でページごとに画像化され、その後に保存サイズ設定が適用されます。PDF内のベクター、文字、透明、RGB・CMYK・特色は最終的に1枚のピクセル画像へ統合されます。元の編集構造は保持されません。"
                     : "Each PDF page is rasterized at the selected import PPI, then resized. Vector objects, text, transparency and color spaces are flattened into one pixel image; editable structure is not preserved.")
                 helpSection("PSD / TIFF / GIF", japanese
-                    ? "PSDはPhotoshop保存時に生成される統合画像（Composite Image）を使用します。レイヤー、マスク、スマートオブジェクト、調整レイヤー、効果は保持・再構築しません。統合画像が保存されていないPSDは読み込めない場合があります。TIFFもレイヤーを保持しません。TIFF規格は複数画像を格納できるため、そのような特殊なTIFFを読み込んだ場合は各画像を書き出します。一般的な写真TIFFは通常1画像です。アニメーションGIFは先頭フレームのみ使用します。"
-                    : "PSD uses the Composite Image generated when Photoshop saves the file. Layers, masks, smart objects, adjustments and effects are not reconstructed. PSD files saved without a composite may fail. TIFF layers are not preserved. The TIFF format can technically contain multiple images; Sprouts exports each one when encountered, though ordinary photo TIFF files usually contain one. Animated GIF uses only its first frame.")
+                    ? "PSDはPhotoshop保存時に生成される統合画像（Composite Image）を使用します。レイヤー、マスク、スマートオブジェクト、調整レイヤー、効果は保持・再構築しません。色再現は保証できないため、納品物など色が重要な案件には推奨しません。Photoshopなどで書き出してください。統合画像が保存されていないPSDは読み込めない場合があります。TIFFもレイヤーを保持しません。TIFF規格は複数画像を格納できるため、そのような特殊なTIFFを読み込んだ場合は各画像を書き出します。一般的な写真TIFFは通常1画像です。アニメーションGIFは先頭フレームのみ使用します。処理中は「処理を中止」または⌘.で中止できます。ネイティブの画像デコード・書き出し中は即時に止められず、現在の画像が終わった後に止まる場合があります。"
+                    : "PSD uses the Composite Image generated when Photoshop saves the file. Layers, masks, smart objects, adjustments and effects are not reconstructed. Color reproduction is not guaranteed, so PSD is not recommended for color-critical or delivery work; export with Photoshop or another dedicated editor instead. PSD files saved without a composite may fail. TIFF layers are not preserved. The TIFF format can technically contain multiple images; Sprouts exports each one when encountered, though ordinary photo TIFF files usually contain one. Animated GIF uses only its first frame. While converting, click Stop or press Command-period. Native image decoding and encoding cannot be interrupted immediately, so Sprouts may stop after the current image finishes.")
                 helpSection(japanese ? "保存サイズとリサイズ" : "Sizing and resizing", japanese
                     ? "100%は元のピクセル数を維持します。\n\n「長辺ピクセル」「短辺ピクセル」は、指定した辺が入力より大きい場合も、その値になるまで拡大します。たとえば長辺1200pxの画像に「長辺2400px」を指定すると、縦横を2倍にして長辺2400pxで保存します。縦横比は常に維持されます。\n\n「長辺px以内」「短辺px以内」は上限指定です。上限を超える画像だけ縮小し、小さい画像は拡大しません。たとえば長辺1200pxの画像に「長辺2400px以内」を指定しても1200pxのままです。「幅／高さ」は指定値まで拡大・縮小し、「幅以内／高さ以内」は上限を超える場合だけ縮小します。\n\n解像度（PPI）は「指定PPI ÷ 元画像PPI」の倍率で通常画像のピクセル寸法を変更し、印刷上の実寸を維持します。PPI情報がない画像は72ppiとして計算します。72ppiから300ppiでは縦横が約4.17倍になります。PDFは指定PPIで各ページを画像化してから保存サイズを適用します。\n\n拡大処理は存在しない細部を復元するものではなく、ぼけ、輪郭の甘さ、圧縮ノイズの拡大が起こる場合があります。Sproutsの自動、バイキュービック、シャープ、スムーズはAppleの画像処理を利用しており、Photoshopの同名方式と計算やシャープ量が完全に同一ではありません。重要な案件では結果を事前確認してください。"
                     : "100% preserves the original pixel dimensions.\n\nLong Edge Pixels and Short Edge Pixels resize to the exact requested edge even when that requires enlargement. For example, applying Long Edge 2400 px to a 1200 px image doubles both dimensions while preserving aspect ratio.\n\nLong Edge Maximum and Short Edge Maximum are upper limits: only larger images are reduced, and smaller images are never enlarged. Width and Height resize to the requested value; Width Maximum and Height Maximum only reduce images that exceed the limit. Aspect ratio is always preserved.\n\nPPI mode resizes ordinary images by target PPI divided by source PPI to preserve physical print size. Images without PPI metadata are treated as 72 ppi, so 72 to 300 ppi enlarges each dimension by about 4.17×. PDF pages are first rasterized at the selected PPI and then processed by the save-size setting.\n\nUpscaling cannot recreate missing detail and may magnify softness or compression artifacts. Sprouts uses Apple imaging; its Automatic and bicubic variants are not numerically identical to Photoshop's similarly named methods. Verify critical output.")

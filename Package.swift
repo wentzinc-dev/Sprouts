@@ -15,6 +15,10 @@ let package = Package(
         .executableTarget(
             name: "Sprouts",
             dependencies: [.product(name: "SDWebImageWebPCoder", package: "SDWebImageWebPCoder")]
+        ),
+        .testTarget(
+            name: "SproutsTests",
+            dependencies: ["Sprouts"]
         )
     ],
     swiftLanguageVersions: [.v5]
