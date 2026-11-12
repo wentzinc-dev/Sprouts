@@ -18,7 +18,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SproutsTests",
-            dependencies: ["Sprouts"]
+            dependencies: [
+                "Sprouts",
+                .product(name: "SDWebImageWebPCoder", package: "SDWebImageWebPCoder")
+            ]
         )
     ],
     swiftLanguageVersions: [.v5]

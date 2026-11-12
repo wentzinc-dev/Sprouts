@@ -414,7 +414,12 @@ struct FileConverter {
         }
         try Task.checkCancellation()
         guard abs(scale - 1) > 0.0001,
-              let processed = postProcessedImage(rendered.image, method: options.resizeMethod, scale: scale) else {
+              let processed = postProcessedImage(
+                rendered.image,
+                colorSpace: colorSpace,
+                method: options.resizeMethod,
+                scale: scale
+              ) else {
             return rendered
         }
         return RenderedPage(
@@ -485,8 +490,17 @@ struct FileConverter {
         }
     }
 
-    private func postProcessedImage(_ image: CGImage, method: ResizeMethod, scale: CGFloat) -> CGImage? {
+    private func postProcessedImage(
+        _ image: CGImage,
+        colorSpace: CGColorSpace,
+        method: ResizeMethod,
+        scale: CGFloat
+    ) -> CGImage? {
         guard !Task.isCancelled else { return nil }
+        // Core Image's default output is Device RGB. Do not run its RGB-only
+        // filters on CMYK images: doing so would change the pixels while the
+        // caller still regards the result as CMYK.
+        guard colorSpace.model == .rgb else { return nil }
         let resolvedMethod: ResizeMethod = method == .automatic
             ? (scale < 1 ? .bicubicSharper : .bicubicSmoother)
             : method
@@ -505,7 +519,12 @@ struct FileConverter {
         case .automatic, .bicubic, .nearestNeighbor:
             return nil
         }
-        return CIContext(options: [.cacheIntermediates: false]).createCGImage(output, from: input.extent)
+        let format: CIFormat = image.bitsPerComponent > 8 ? .RGBA16 : .RGBA8
+        return CIContext(options: [
+            .cacheIntermediates: false,
+            .workingColorSpace: colorSpace,
+            .outputColorSpace: colorSpace
+        ]).createCGImage(output, from: input.extent, format: format, colorSpace: colorSpace)
     }
 
     private func write(
@@ -520,9 +539,16 @@ struct FileConverter {
         try Task.checkCancellation()
         let format = options.format
         if format == .webp {
-            let image = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+            // SDImageWebPCoder embeds the input image's ICC profile whenever it
+            // has one. Supply an untagged Device RGB image for the OFF setting,
+            // then remove any ICCP chunk defensively (some OS color spaces can
+            // still serialize an ICC payload).
+            let webPImage = options.embedsColorProfile
+                ? image
+                : (imageWithoutEmbeddedProfile(image) ?? image)
+            let nsImage = NSImage(cgImage: webPImage, size: NSSize(width: webPImage.width, height: webPImage.height))
             guard let data = SDImageWebPCoder.shared.encodedData(
-                with: image,
+                with: nsImage,
                 format: .webP,
                 options: [.encodeCompressionQuality: Double(options.webPQuality) / 100]
             ) else {
@@ -530,7 +556,7 @@ struct FileConverter {
             }
             try Task.checkCancellation()
             do {
-                try data.write(to: url, options: .atomic)
+                try (options.embedsColorProfile ? data : removingWebPICCProfile(from: data)).write(to: url, options: .atomic)
             } catch {
                 throw ConversionError.cannotEncodeItem(itemNumber, format, isJapanese)
             }
@@ -629,7 +655,12 @@ struct FileConverter {
     }
 
     private func imageOnWhiteBackground(_ image: CGImage) -> CGImage? {
-        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+        let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        let isCMYK = colorSpace.model == .cmyk
+        let bitmapInfo = isCMYK
+            ? CGImageAlphaInfo.none.rawValue
+            : CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.noneSkipLast.rawValue
+        guard
               let context = CGContext(
                 data: nil,
                 width: image.width,
@@ -637,12 +668,56 @@ struct FileConverter {
                 bitsPerComponent: 8,
                 bytesPerRow: image.width * 4,
                 space: colorSpace,
-                bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.noneSkipLast.rawValue
+                bitmapInfo: bitmapInfo
               ) else { return nil }
-        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.setFillColor(isCMYK ? [0, 0, 0, 0] : [1, 1, 1, 1])
         context.fill(CGRect(x: 0, y: 0, width: image.width, height: image.height))
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return context.makeImage()
+    }
+
+    private func removingWebPICCProfile(from data: Data) -> Data {
+        // A WebP file is a RIFF container. SDImageWebPCoder deliberately adds
+        // ICCP for every serializable input color space, so its public options
+        // cannot express our profile-toggle semantics. Removing just that
+        // metadata chunk leaves the encoded pixels and all other metadata intact.
+        guard data.count >= 12,
+              data.prefix(4) == Data("RIFF".utf8),
+              data.subdata(in: 8..<12) == Data("WEBP".utf8) else { return data }
+
+        var result = Data("RIFF".utf8)
+        result.append(contentsOf: [0, 0, 0, 0])
+        result.append(Data("WEBP".utf8))
+        var offset = 12
+        var removed = false
+        while offset + 8 <= data.count {
+            let chunkStart = offset
+            let fourCC = data.subdata(in: offset..<(offset + 4))
+            let length = Int(data[offset + 4])
+                | (Int(data[offset + 5]) << 8)
+                | (Int(data[offset + 6]) << 16)
+                | (Int(data[offset + 7]) << 24)
+            let chunkEnd = offset + 8 + length + (length & 1)
+            guard chunkEnd <= data.count else { return data }
+            if fourCC == Data("ICCP".utf8) {
+                removed = true
+            } else {
+                var chunk = data.subdata(in: chunkStart..<chunkEnd)
+                // ICCP_FLAG is bit 5 of VP8X's feature byte.
+                if fourCC == Data("VP8X".utf8), chunk.count >= 9 {
+                    chunk[8] &= ~0x20
+                }
+                result.append(chunk)
+            }
+            offset = chunkEnd
+        }
+        guard removed, offset == data.count else { return data }
+        let riffLength = UInt32(result.count - 8)
+        result.replaceSubrange(4..<8, with: [
+            UInt8(riffLength & 0xff), UInt8((riffLength >> 8) & 0xff),
+            UInt8((riffLength >> 16) & 0xff), UInt8((riffLength >> 24) & 0xff)
+        ])
+        return result
     }
 
     private func validate(colorSpace: CGColorSpace, options: ExportOptions, isJapanese: Bool) throws {
