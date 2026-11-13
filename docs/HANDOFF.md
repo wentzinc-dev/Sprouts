@@ -1,6 +1,52 @@
 # Sprouts 開発引き継ぎまとめ
 
-更新日: 2026年8月2日
+更新日: 2026年11月14日
+
+## 0. 2026年11月14日現在の最新状態（最優先）
+
+この節は、以降に残っている2026年8月時点の設計経緯より優先します。
+
+- Repository: <https://github.com/wentzinc-dev/Sprouts>
+- 最新の正式ブランチ: `master`
+- `master` / `origin/master` / 現在の開発ブランチの先頭: `a2b0d85 Update privacy policy contact link`
+- Xcode Project: `Sprouts.xcodeproj`
+- Scheme / Target / Product: `Sprouts`
+- Bundle Identifier: `com.wentz.Sprouts`
+- macOS 13以降、Apple Silicon / Intel Universal Binary
+- App Store提出用の現在値: Version `1.2`、Build `4`
+
+Version `1.2` / Build `4`は`Sprouts.xcodeproj/project.pbxproj`のローカル未コミット変更です。Xcodeの表示状態による`Sprouts.xcodeproj/project.xcworkspace/contents.xcworkspacedata`の変更も未コミットで残っています。これらを他の修正と混ぜたり、無断で破棄しないこと。
+
+### Version 1.2に含まれる最新変更
+
+- `62d75a8`: `元ファイルに合わせる`選択時に、Adobe RGBなどの入力ICCプロファイルを意図せずsRGBへ変換せず維持するよう修正。JPEG / PNG / TIFF / WebPのICC処理テストを追加。
+- `3aa4194`: 正常終了時のダイアログを廃止し、エラー時だけダイアログを表示。`完了時にフォルダを開く`の動作は維持。
+- `4afef9d`: HEIC / HEIF入力に対応。既存のJPG / PNG / TIFF / WebPへ変換可能。複数画像が入ったHEIC / HEIFはImageIOが公開する各画像を個別に書き出す。HEICへの出力は未対応。
+- `a2b0d85`: プライバシーポリシーの問い合わせ先をGitHub IssuesからWENTZ Apps共通Googleフォームへ統一。
+
+HEIC対応後の`swift test`は10件すべて成功。Release構成のXcodeビルドも成功し、arm64 / x86_64のUniversal Binary生成を確認済みです。
+
+### 現在の入出力形式
+
+- 入力: PNG、JPG / JPEG、PDF、PSD、TIF / TIFF、GIF、WebP、HEIC / HEIF
+- 出力: JPG、PNG、TIF / TIFF、WebP
+
+PSDは保存済みの統合画像を利用し、レイヤーを保持しません。PSDの厳密な色再現は保証せず、色が重要な案件ではPhotoshopなどの専用アプリを推奨する注記を維持しています。
+
+### サポートとプライバシーポリシー
+
+- サポートページ: `docs/index.md`
+- プライバシーポリシー: `docs/privacy.md`
+- 問い合わせ先: [WENTZ Apps Support Googleフォーム](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)
+
+問い合わせはメール直送ではなくGoogleフォームの回答として保存されます。フォームは`WENTZ Apps Support`という名称で、公開画面には`WENTZ INC. 内部で作成`と表示されます。所有者のメールアドレスは未特定です。WENTZ INC.のGoogle WorkspaceアカウントでGoogle Formsを開き、回答タブと`新しい回答についてのメール通知`設定を確認する必要があります。
+
+### App Store用 Version 1.2更新文の要点
+
+- HEIC / HEIFファイルの読み込みと変換に対応
+- `元ファイルに合わせる`選択時のカラープロファイル処理を改善
+- ICCプロファイルを維持した書き出しの精度を改善
+- 書き出し完了時の操作を簡素化
 
 ## 1. プロジェクト概要
 
