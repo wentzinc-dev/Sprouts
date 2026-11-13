@@ -1484,8 +1484,8 @@ struct ContentView: View {
     private var droppedFileLabel: String {
         switch droppedURLs.count {
         case 0: t(
-            "（PNG、JPG、PDF、PSD、TIF、GIF、WebP）をここへドロップ",
-            "Drop PNG, JPG, PDF, PSD, TIF, GIF, or WebP here"
+            "（PNG、JPG、PDF、PSD、TIF、GIF、WebP、HEIC、HEIF）をここへドロップ",
+            "Drop PNG, JPG, PDF, PSD, TIF, GIF, WebP, HEIC, or HEIF here"
         )
         case 1: droppedURLs[0].lastPathComponent
         default: t("\(droppedURLs.count)項目を選択中", "\(droppedURLs.count) items selected")
@@ -1990,14 +1990,17 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(japanese ? "Sproutsの使い方" : "Using Sprouts").font(.largeTitle.bold())
                 helpSection(japanese ? "基本操作" : "Basics", japanese
-                    ? "PNG、JPG、PDF、PSD、TIFF、GIF、WebP、またはそれらを含むフォルダをドロップします。保存先、保存サイズ、形式、カラーを設定し、「画像を書き出す」を押してください。複数形式を同時に処理できます。処理状況とコピー可能なログは右下に表示されます。"
-                    : "Drop PNG, JPG, PDF, PSD, TIFF, GIF, WebP, or folders containing them. Choose the destination and output settings, then click Export images. Progress and a selectable log appear at bottom right.")
+                    ? "PNG、JPG、PDF、PSD、TIFF、GIF、WebP、HEIC、HEIF、またはそれらを含むフォルダをドロップします。保存先、保存サイズ、形式、カラーを設定し、「画像を書き出す」を押してください。複数形式を同時に処理できます。処理状況とコピー可能なログは右下に表示されます。"
+                    : "Drop PNG, JPG, PDF, PSD, TIFF, GIF, WebP, HEIC, HEIF, or folders containing them. Choose the destination and output settings, then click Export images. Progress and a selectable log appear at bottom right.")
                 helpSection("PDF", japanese
                     ? "PDFは指定した読込解像度でページごとに画像化され、その後に保存サイズ設定が適用されます。PDF内のベクター、文字、透明、RGB・CMYK・特色は最終的に1枚のピクセル画像へ統合されます。元の編集構造は保持されません。"
                     : "Each PDF page is rasterized at the selected import PPI, then resized. Vector objects, text, transparency and color spaces are flattened into one pixel image; editable structure is not preserved.")
                 helpSection("PSD / TIFF / GIF", japanese
                     ? "PSDはPhotoshop保存時に生成される統合画像（Composite Image）を使用します。レイヤー、マスク、スマートオブジェクト、調整レイヤー、効果は保持・再構築しません。色再現は保証できないため、納品物など色が重要な案件には推奨しません。Photoshopなどで書き出してください。統合画像が保存されていないPSDは読み込めない場合があります。TIFFもレイヤーを保持しません。TIFF規格は複数画像を格納できるため、そのような特殊なTIFFを読み込んだ場合は各画像を書き出します。一般的な写真TIFFは通常1画像です。アニメーションGIFは先頭フレームのみ使用します。処理中は「処理を中止」または⌘.で中止できます。ネイティブの画像デコード・書き出し中は即時に止められず、現在の画像が終わった後に止まる場合があります。"
                     : "PSD uses the Composite Image generated when Photoshop saves the file. Layers, masks, smart objects, adjustments and effects are not reconstructed. Color reproduction is not guaranteed, so PSD is not recommended for color-critical or delivery work; export with Photoshop or another dedicated editor instead. PSD files saved without a composite may fail. TIFF layers are not preserved. The TIFF format can technically contain multiple images; Sprouts exports each one when encountered, though ordinary photo TIFF files usually contain one. Animated GIF uses only its first frame. While converting, click Stop or press Command-period. Native image decoding and encoding cannot be interrupted immediately, so Sprouts may stop after the current image finishes.")
+                helpSection("HEIC / HEIF", japanese
+                    ? "複数画像を含むHEIC / HEIFは、ImageIOが公開する各画像を書き出します。"
+                    : "For HEIC / HEIF files containing multiple images, Sprouts exports each image exposed by ImageIO.")
                 helpSection(japanese ? "保存サイズとリサイズ" : "Sizing and resizing", japanese
                     ? "100%は元のピクセル数を維持します。\n\n「長辺ピクセル」「短辺ピクセル」は、指定した辺が入力より大きい場合も、その値になるまで拡大します。たとえば長辺1200pxの画像に「長辺2400px」を指定すると、縦横を2倍にして長辺2400pxで保存します。縦横比は常に維持されます。\n\n「長辺px以内」「短辺px以内」は上限指定です。上限を超える画像だけ縮小し、小さい画像は拡大しません。たとえば長辺1200pxの画像に「長辺2400px以内」を指定しても1200pxのままです。「幅／高さ」は指定値まで拡大・縮小し、「幅以内／高さ以内」は上限を超える場合だけ縮小します。\n\n解像度（PPI）は「指定PPI ÷ 元画像PPI」の倍率で通常画像のピクセル寸法を変更し、印刷上の実寸を維持します。PPI情報がない画像は72ppiとして計算します。72ppiから300ppiでは縦横が約4.17倍になります。PDFは指定PPIで各ページを画像化してから保存サイズを適用します。\n\n拡大処理は存在しない細部を復元するものではなく、ぼけ、輪郭の甘さ、圧縮ノイズの拡大が起こる場合があります。Sproutsの自動、バイキュービック、シャープ、スムーズはAppleの画像処理を利用しており、Photoshopの同名方式と計算やシャープ量が完全に同一ではありません。重要な案件では結果を事前確認してください。"
                     : "100% preserves the original pixel dimensions.\n\nLong Edge Pixels and Short Edge Pixels resize to the exact requested edge even when that requires enlargement. For example, applying Long Edge 2400 px to a 1200 px image doubles both dimensions while preserving aspect ratio.\n\nLong Edge Maximum and Short Edge Maximum are upper limits: only larger images are reduced, and smaller images are never enlarged. Width and Height resize to the requested value; Width Maximum and Height Maximum only reduce images that exceed the limit. Aspect ratio is always preserved.\n\nPPI mode resizes ordinary images by target PPI divided by source PPI to preserve physical print size. Images without PPI metadata are treated as 72 ppi, so 72 to 300 ppi enlarges each dimension by about 4.17×. PDF pages are first rasterized at the selected PPI and then processed by the save-size setting.\n\nUpscaling cannot recreate missing detail and may magnify softness or compression artifacts. Sprouts uses Apple imaging; its Automatic and bicubic variants are not numerically identical to Photoshop's similarly named methods. Verify critical output.")

@@ -194,7 +194,7 @@ WebP品質はWebP選択時に1〜100で設定します。
 - v1基準: コミット`486233c`、タグ`sprout-v1`
 - v2作業ブランチ: `codex/sprout-v2`
 - 画面内の文字タイトルは表示しない（タイトルバーの`Sprouts`は維持）
-- ドロップ表示: `（PNG、JPG、PDF、PSD、TIF、GIF、WebP）をここへドロップ`
+- ドロップ表示: `（PNG、JPG、PDF、PSD、TIF、GIF、WebP、HEIC、HEIF）をここへドロップ`
 - 緑を基調にしたmacOSネイティブUI
 - 右上の歯車から環境設定を表示
 - メインウインドウは左メイン列＋右サイド列の2カラム

@@ -80,7 +80,7 @@ enum InputInspector {
             default: ext.uppercased()
             }
             result.formatCounts[label, default: 0] += 1
-            if ["png", "gif", "webp", "tif", "tiff", "psd"].contains(ext) {
+            if ["png", "gif", "webp", "tif", "tiff", "psd", "heic", "heif"].contains(ext) {
                 result.mayContainTransparency = true
             }
 
@@ -136,7 +136,7 @@ enum InputInspector {
 
 struct FileConverter {
     static let supportedExtensions: Set<String> = [
-        "png", "jpg", "jpeg", "pdf", "psd", "tif", "tiff", "gif", "webp"
+        "png", "jpg", "jpeg", "pdf", "psd", "tif", "tiff", "gif", "webp", "heic", "heif"
     ]
 
     func convert(

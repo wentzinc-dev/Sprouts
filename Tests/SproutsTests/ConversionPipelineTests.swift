@@ -7,6 +7,42 @@ import XCTest
 @testable import Sprouts
 
 final class ConversionPipelineTests: XCTestCase {
+    func testHEICAndHEIFInputConversionAndInspection() async throws {
+        let png = try makePNG(width: 8, height: 6)
+        let folder = png.deletingLastPathComponent()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let image = try XCTUnwrap(imageAt(png))
+
+        for ext in ["heic", "heif"] {
+            XCTAssertTrue(FileConverter.supportedExtensions.contains(ext))
+            let source = folder.appendingPathComponent("source.\(ext)")
+            let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(source as CFURL, UTType.heic.identifier as CFString, 2, nil))
+            CGImageDestinationAddImage(destination, image, nil)
+            CGImageDestinationAddImage(destination, image, nil)
+            XCTAssertTrue(CGImageDestinationFinalize(destination))
+            let imageSource = try XCTUnwrap(CGImageSourceCreateWithURL(source as CFURL, nil))
+            XCTAssertEqual(CGImageSourceGetCount(imageSource), 2)
+            let inspection = InputInspector.inspect(urls: [source], options: ExportOptions())
+            XCTAssertEqual(inspection.outputImageCount, 2)
+            XCTAssertTrue(inspection.mayContainTransparency)
+
+            for format in [ExportFormat.jpg, .png, .tiff, .webp] {
+                var options = ExportOptions()
+                options.format = format
+                let outputs = try await FileConverter().convert(
+                    inputURL: source, destinationURL: folder.appendingPathComponent(UUID().uuidString),
+                    options: options, sequence: OutputSequence(), isJapanese: false, progress: { _, _ in }
+                )
+                XCTAssertEqual(outputs.count, 2)
+                for output in outputs {
+                    let decoded = format == .webp ? webPImageAt(output) : imageAt(output)
+                    XCTAssertEqual(decoded?.width, 8)
+                    XCTAssertEqual(decoded?.height, 6)
+                }
+            }
+        }
+    }
+
     func testInspectionUsesImagePropertiesForDimensions() throws {
         let source = try makePNG(width: 8, height: 6)
         defer { try? FileManager.default.removeItem(at: source.deletingLastPathComponent()) }

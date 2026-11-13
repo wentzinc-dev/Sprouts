@@ -13,7 +13,7 @@ Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリで�
 
 ## 基本的な使い方
 
-1. PNG、JPG、PDF、PSD、TIFF、GIF、WebP、または対応ファイルを含むフォルダをドロップします。
+1. PNG、JPG、PDF、PSD、TIFF、GIF、WebP、HEIC、HEIF、または対応ファイルを含むフォルダをドロップします。
 2. 保存サイズ、出力形式、カラー、保存先を選びます。
 3. 必要に応じて「詳細設定」を開きます。
 4. 右側の詳細表示で出力予定と注意事項を確認します。
@@ -47,6 +47,7 @@ Sproutsは、画像、PDF、PSDなどをMac内で変換するmacOSアプリで�
 - PDF：指定PPIでページごとに画像化した後、保存サイズを適用します。文字やベクターもピクセル画像へ統合されます。
 - PSD：Photoshop保存時の統合画像を使用します。レイヤー、マスク、スマートオブジェクトなどは保持しません。統合画像のないPSDは開けない場合があります。
 - TIFF：レイヤーを保持しません。複数画像を格納したTIFFは各画像を書き出します。
+- HEIC / HEIF：複数画像を含む場合、ImageIOが公開する各画像を書き出します。
 - GIF：アニメーションは保持せず、先頭フレームを使用します。
 
 > **重要：PSDのカラーについて**  現在のSproutsは、macOSで取得できるPSDの保存済み統合画像を使用して変換します。このため、埋め込みICCプロファイルを持つPSDでは、Photoshopまたは元ファイルと比べて出力画像の色味が変わる場合があります。特にProPhoto RGB、Adobe RGB (1998)、Display P3などの広色域プロファイルでは差が目立つことがあります。すべてのPSDで発生するものではありません。正確な色が必要な場合は、現時点ではPhotoshopで**プロファイル変換**（単なるプロファイルの割り当てではありません）によりsRGBへ変換してから、Sproutsで書き出してください。
@@ -87,7 +88,7 @@ Sprouts is a native macOS converter for images, PDF, and PSD. Processing stays o
 
 ## Quick start
 
-1. Drop PNG, JPG, PDF, PSD, TIFF, GIF, WebP, or folders containing supported files.
+1. Drop PNG, JPG, PDF, PSD, TIFF, GIF, WebP, HEIC, HEIF, or folders containing supported files.
 2. Choose the save size, output formats, color profile, and destination.
 3. Open Advanced Settings when needed.
 4. Review the output summary and warnings.
@@ -106,6 +107,7 @@ Upscaling cannot recreate missing detail and may magnify softness or compression
 - PDF pages are rasterized at the selected PPI and then resized.
 - PSD uses the saved composite image; layers and editable structures are not preserved.
 - TIFF layers are not preserved. Multi-image TIFF files produce one output per image.
+- Multi-image HEIC / HEIF files produce one output per image exposed by ImageIO.
 - Animated GIF uses the first frame only.
 - JPEG cannot preserve transparency.
 - JPEG files are written in the standard baseline format. This is similar to Photoshop's Baseline (Standard) setting, but the compression result will not be identical because Sprouts uses a different JPEG encoder.
