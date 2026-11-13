@@ -1613,9 +1613,6 @@ struct ContentView: View {
                     logText += "\n[\(fileIndex + 1)/\(filesToConvert.count)] \(input.url.lastPathComponent)"
                 }
                 conversionProgress = 1
-                alertMessage = conversionLanguageIsJapanese
-                    ? "\(filesToConvert.count)個のファイルを\(selectedFormats.count)形式へ変換しました。"
-                    : "Converted \(filesToConvert.count) file(s) into \(selectedFormats.count) format(s)."
                 logText += conversionLanguageIsJapanese ? "\n完了" : "\nCompleted"
                 if conversionOptions.shouldOpenDestinationWhenComplete {
                     NSWorkspace.shared.activateFileViewerSelecting(exportedURLs)
@@ -1625,9 +1622,6 @@ struct ContentView: View {
                 logText += conversionLanguageIsJapanese
                     ? "\n中止：完了済みの書き出しは保持されます"
                     : "\nStopped: files already written are kept"
-                alertMessage = conversionLanguageIsJapanese
-                    ? "処理を中止しました。完了済みの書き出しは保存先に残っています。"
-                    : "Conversion stopped. Files already written remain in the destination."
             } catch {
                 logText += "\nERROR: \(error.localizedDescription)"
                 alertMessage = error.localizedDescription
