@@ -6,7 +6,7 @@ permalink: /privacy/
 
 # Sprouts プライバシーポリシー
 
-最終更新日：2026年8月19日
+最終更新日：2026年11月14日
 
 SproutsはWENTZ, K.K.が提供するmacOS向け画像変換アプリです。
 
@@ -26,13 +26,13 @@ Sproutsは広告、アクセス解析、クラウド処理などの第三者サ�
 
 ## お問い合わせ
 
-本ポリシーまたはSproutsに関するお問い合わせは、[GitHub Issues](https://github.com/wentzinc-dev/Sprouts/issues/new)からご連絡ください。
+本ポリシーまたはSproutsに関するお問い合わせは、[WENTZ Apps共通のお問い合わせフォーム](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog)からご連絡ください。パスワードや機密情報などは送信しないでください。
 
 ---
 
 # Privacy Policy (English)
 
-Last updated: August 19, 2026
+Last updated: November 14, 2026
 
 Sprouts is a macOS image conversion app provided by WENTZ, K.K.
 
@@ -44,4 +44,4 @@ Sprouts may store macOS security-scoped bookmarks locally so it can continue acc
 
 Sprouts does not use third-party advertising, analytics, or cloud-processing services. Included open-source image-format libraries are used only for local processing.
 
-For questions about this policy or Sprouts, please open a [GitHub Issue](https://github.com/wentzinc-dev/Sprouts/issues/new).
+For questions about this policy or Sprouts, please use the [WENTZ Apps support form](https://docs.google.com/forms/d/e/1FAIpQLSd3V74ozJ3_UB7zVQASpR711yqdjQlCQbyb2Tw7IwPBomWDOw/viewform?usp=dialog). Do not submit passwords, confidential information, or other sensitive data.
